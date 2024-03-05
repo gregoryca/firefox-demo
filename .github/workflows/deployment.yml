@@ -1,9 +1,9 @@
-name: Deploy Traefik infra
+name: Deploy Firefox container demo
 
 on:
   workflow_dispatch:
   repository_dispatch:
-      types: [deploy_traefik]
+      types: [deploy_ff_demo]
   pull_request:
     types:
       - closed
