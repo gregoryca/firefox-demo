@@ -1,0 +1,77 @@
+name: Clean up Firefox container demo
+
+on:
+  workflow_dispatch:
+  repository_dispatch:
+      types: [deploy_ff_demo]
+  pull_request:
+    types:
+      - closed
+
+jobs:
+  setup-infra:
+    name: Setup Network Infrastructure
+    # if: github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    environment: production
+    permissions:
+      contents: read
+      id-token: write
+      
+    defaults:
+        run:
+          shell: bash
+          working-directory: ./
+
+    steps:
+      ## Checkout the repository to the GitHub Actions runner
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      ## Install the selected version of Terraform CLI 
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_version: 1.1.7
+      ## initialize terraform
+      - name: Terraform Init
+        id: init
+        run: terraform init -reconfigure -backend-config="lock_address=http://terraform-backend.apex-migrations.net/s/ff-demo/" -backend-config="unlock_address=http://terraform-backend.apex-migrations.net/s/ff-demo/" -backend-config="address=http://terraform-backend.apex-migrations.net/s/ff-demo/"
+
+      ## On merge to main apply changes
+      - name: Terraform Apply
+        id: apply
+        run: terraform destroy -auto-approve
+
+  deploy-container:
+    needs: setup-infra
+    name: Deploy App Container
+    runs-on: ubuntu-latest
+    environment: production
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      ## Checkout Github Code #
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      ## Deploys an ansible script to manage the Authelia stack deployment #
+      - uses: dawidd6/action-ansible-playbook@v2
+        name: Clean up ff-demo container
+        with:
+          ## Required, playbook filepath #
+          playbook: cleanup.yml
+          ## Optional, directory where playbooks live #
+          directory: ./deployments
+          ## SSH private key #
+          key: ${{ secrets.ANSIBLE_SSH_PRIVATE_KEY }}
+          ## inventory file contents #
+          inventory: |
+            [production]
+            dc-srv-01 ansible_host=dc-srv-01.apex-migrations.net
+
+            [production:vars]
+            ansible_user = ${{ secrets.ANSIBLE_USER }}
+            ansible_ssh_private_key_file = ${{ secrets.ANSIBLE_SSH_PRIVATE_KEY }}

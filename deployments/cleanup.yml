@@ -1,0 +1,20 @@
+---
+- hosts: linux
+  gather_facts: false
+  tasks:
+
+  - name: Stop docker container
+    become: True
+    shell:
+      cmd: "docker-compose down"
+      chdir: /home/GregoryacDevOps/srv/firefox-demo/
+
+  - name: Delete content & directory
+    file:
+      state: absent
+      path: /home/GregoryacDevOps/srv/firefox-demo/
+
+  - name: Run docker compose file
+    become: True
+    shell:
+      cmd: "docker system prune -a"
