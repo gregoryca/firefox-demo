@@ -1,0 +1,17 @@
+version: '3'
+services:
+  firefox:
+    container_name: firefox.browser
+    image: jlesage/firefox:latest
+    restart: always
+    volumes:
+      - "./appdata/firefox:/config:rw"
+    networks:
+        - web-secure
+    labels:
+        - sablier.enable=true
+        - sablier.group=production
+       
+networks:
+  web-secure:
+    external: true

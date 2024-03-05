@@ -1,0 +1,64 @@
+---
+- hosts: linux
+  gather_facts: false
+  tasks:
+
+  #########################################
+  # Creating a temp directory on the host #
+  #########################################
+  - name: Create a temp directory if it does not exist
+    ansible.builtin.file:
+      path: ~/temp/firefox-demo/
+      state: directory
+      mode: '0777'
+
+  ######################################
+  # Checkout Git Repo for latest code #
+  ######################################
+  - name: Checkout Git repo in temp directory
+    ansible.builtin.git:
+      repo: 'git@github.com:gregoryca/firefox-demo.git'
+      dest: ~/temp/firefox-demo/
+      accept_hostkey: yes
+      key_file: /home/gregory/.ssh/id_ed25519
+
+  ########################################
+  # Creating a srv directory on the host #
+  ########################################  
+  - name: Create the srv directory if it does not exist
+    ansible.builtin.file:
+      path: ~/srv/
+      state: directory
+      mode: '0777'
+
+  ##########################
+  # Copy the git repo file #
+  ##########################
+  - name: copy git repo to remote server
+    copy:
+      src: ~/temp/firefox-demo
+      dest: ~/srv/
+      remote_src: yes
+      
+  #######################
+  # Deploy compose file #
+  #######################
+  # - name: deploy Docker Compose stack on remote server
+  #   docker_compose:
+  #     project_src: ~/srv/firefox-demo/
+  #     files:
+  #     - docker-compose.yml
+
+  - name: Run container
+    become: True
+    shell:
+      cmd: "docker-compose up -d"
+      chdir: /home/GregoryacDevOps/srv/firefox-demo/
+
+  #########################################
+  # Clean up temp folder after deployment #
+  #########################################
+  - name: Delete content & directory
+    file:
+      state: absent
+      path: ~/temp/
