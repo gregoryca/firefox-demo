@@ -58,7 +58,7 @@ jobs:
   deploy-container:
     needs: setup-infra
     name: Deploy App Container
-    runs-on: ubunutu-latest
+    runs-on: ubuntu-latest
     environment: production
     permissions:
       contents: read
