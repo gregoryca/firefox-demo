@@ -78,8 +78,8 @@ jobs:
           ## Optional, directory where playbooks live #
           directory: ./deployments
           configuration: |
-          [inventory]
-          enable_plugins = yaml, ini
+            [inventory]
+            enable_plugins = yaml, ini
           ## SSH private key #
           key: ${{ secrets.ANSIBLE_SSH_PRIVATE_KEY }}
           ## inventory file contents #
