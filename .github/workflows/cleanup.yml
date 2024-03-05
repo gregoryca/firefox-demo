@@ -1,4 +1,4 @@
-name: Clean up Firefox container demo
+name: Cleanup Firefox container demo
 
 on:
   workflow_dispatch:
@@ -9,8 +9,8 @@ on:
       - closed
 
 jobs:
-  setup-infra:
-    name: Setup Network Infrastructure
+  remove-infra:
+    name: Remove Network Infrastructure
     # if: github.event.pull_request.merged == true
     runs-on: ubuntu-latest
     environment: production
@@ -43,9 +43,9 @@ jobs:
         id: apply
         run: terraform destroy -auto-approve
 
-  cleanup-container:
-    needs: setup-infra
-    name: cleanup App Container
+  remove-container:
+    needs: remove-infra
+    name: Remove App Container
     runs-on: ubuntu-latest
     environment: production
     permissions:
@@ -59,7 +59,7 @@ jobs:
 
       ## Deploys an ansible script to manage the Authelia stack deployment #
       - uses: dawidd6/action-ansible-playbook@v2
-        name: Clean up ff-demo container
+        name: Remove ff-demo container
         with:
           ## Required, playbook filepath #
           playbook: cleanup.yml
