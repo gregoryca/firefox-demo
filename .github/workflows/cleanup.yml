@@ -43,9 +43,9 @@ jobs:
         id: apply
         run: terraform destroy -auto-approve
 
-  deploy-container:
+  cleanup-container:
     needs: setup-infra
-    name: Deploy App Container
+    name: cleanup App Container
     runs-on: ubuntu-latest
     environment: production
     permissions:
