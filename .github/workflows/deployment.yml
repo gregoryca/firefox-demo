@@ -58,7 +58,7 @@ jobs:
   deploy-container:
     needs: setup-infra
     name: Deploy App Container
-    runs-on: self-hosted
+    runs-on: ubunutu-latest
     environment: production
     permissions:
       contents: read
