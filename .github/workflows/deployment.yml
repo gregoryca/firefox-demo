@@ -70,13 +70,16 @@ jobs:
         uses: actions/checkout@v3
 
       ## Deploys an ansible script to manage the Authelia stack deployment #
-      - uses: dawidd6/action-ansible-playbook@v2.8
+      - uses: dawidd6/action-ansible-playbook@v2
         name: Deploy ff-demo container
         with:
           ## Required, playbook filepath #
           playbook: deployment.yml
           ## Optional, directory where playbooks live #
           directory: ./deployments
+          configuration: |
+          [inventory]
+          enable_plugins = yaml, ini
           ## SSH private key #
           key: ${{ secrets.ANSIBLE_SSH_PRIVATE_KEY }}
           ## inventory file contents #
