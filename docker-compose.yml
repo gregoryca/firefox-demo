@@ -4,8 +4,6 @@ services:
     container_name: firefox.browser
     image: jlesage/firefox:latest
     restart: always
-    volumes:
-      - "./appdata/firefox:/config:rw"
     networks:
         - web-secure
     labels:
