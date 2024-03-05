@@ -1,711 +1,0 @@
-/* Pi-hole: A black hole for Internet advertisements
- *  (c) 2017 Pi-hole, LLC (https://pi-hole.net)
- *  Network-wide ad blocking via your own hardware.
- *
- *  This file is copyright under the latest version of the EUPL.
- *  Please see LICENSE file for your rights under this license. */
-
-/* global utils:false */
-
-//The following functions allow us to display time until pi-hole is enabled after disabling.
-//Works between all pages
-
-function secondsTimeSpanToHMS(s) {
-  var h = Math.floor(s / 3600); //Get whole hours
-  s -= h * 3600;
-  var m = Math.floor(s / 60); //Get remaining minutes
-  s -= m * 60;
-  return h + ":" + (m < 10 ? "0" + m : m) + ":" + (s < 10 ? "0" + s : s); //zero padding on minutes and seconds
-}
-
-function piholeChanged(action) {
-  var status = $("#status");
-  var ena = $("#pihole-enable");
-  var dis = $("#pihole-disable");
-
-  switch (action) {
-    case "enabled":
-      status.html("<i class='fa fa-circle text-green-light'></i> Active");
-      ena.hide();
-      dis.show();
-      dis.removeClass("active");
-      break;
-
-    case "disabled":
-      status.html("<i class='fa fa-circle text-red'></i> Blocking disabled");
-      ena.show();
-      dis.hide();
-      break;
-
-    default:
-    // nothing
-  }
-}
-
-function countDown() {
-  var ena = $("#enableLabel");
-  var enaT = $("#enableTimer");
-  var target = new Date(parseInt(enaT.html(), 10));
-  var seconds = Math.round((target.getTime() - Date.now()) / 1000);
-
-  //Stop and remove timer when user enabled early
-  if ($("#pihole-enable").is(":hidden")) {
-    ena.text("Enable Blocking");
-    return;
-  }
-
-  if (seconds > 0) {
-    setTimeout(countDown, 1000);
-    ena.text("Enable Blocking (" + secondsTimeSpanToHMS(seconds) + ")");
-  } else {
-    ena.text("Enable Blocking");
-    piholeChanged("enabled");
-    if (localStorage) {
-      localStorage.removeItem("countDownTarget");
-    }
-  }
-}
-
-function piholeChange(action, duration) {
-  var token = encodeURIComponent($("#token").text());
-  var enaT = $("#enableTimer");
-  var btnStatus;
-
-  switch (action) {
-    case "enable":
-      btnStatus = $("#flip-status-enable");
-      btnStatus.html("<i class='fa fa-spinner'> </i>");
-      $.getJSON("api.php?enable&token=" + token, function (data) {
-        if (data.status === "enabled") {
-          btnStatus.html("");
-          piholeChanged("enabled");
-        }
-      });
-      break;
-
-    case "disable":
-      btnStatus = $("#flip-status-disable");
-      btnStatus.html("<i class='fa fa-spinner'> </i>");
-      $.getJSON("api.php?disable=" + duration + "&token=" + token, function (data) {
-        if (data.status === "disabled") {
-          btnStatus.html("");
-          piholeChanged("disabled");
-          if (duration > 0) {
-            enaT.html(Date.now() + duration * 1000);
-            setTimeout(countDown, 100);
-          }
-        }
-      });
-      break;
-
-    default:
-    // nothing
-  }
-}
-
-function testCookies() {
-  if (navigator.cookieEnabled) {
-    return true;
-  }
-
-  // set and read cookie
-  document.cookie = "cookietest=1";
-  var ret = document.cookie.indexOf("cookietest=") !== -1;
-
-  // delete cookie
-  document.cookie = "cookietest=1; expires=Thu, 01-Jan-1970 00:00:01 GMT";
-
-  return ret;
-}
-
-function initCheckboxRadioStyle() {
-  function getCheckboxURL(style) {
-    var extra = style.startsWith("material-") ? "material" : "bootstrap";
-    return "style/vendor/icheck-" + extra + ".min.css";
-  }
-
-  function applyCheckboxRadioStyle(style) {
-    boxsheet.attr("href", getCheckboxURL(style));
-    // Get all radio/checkboxes for theming, with the exception of the two radio buttons on the custom disable timer,
-    // as well as every element with an id that starts with "status_"
-    var sel = $("input[type='radio'],input[type='checkbox']")
-      .not("#selSec")
-      .not("#selMin")
-      .not("[id^=status_]");
-    sel.parent().removeClass();
-    sel.parent().addClass("icheck-" + style);
-  }
-
-  // Read from local storage, initialize if needed
-  var chkboxStyle = localStorage ? localStorage.getItem("theme_icheck") : null;
-  if (chkboxStyle === null) {
-    chkboxStyle = "primary";
-  }
-
-  var boxsheet = $('<link href="' + getCheckboxURL(chkboxStyle) + '" rel="stylesheet" />');
-  boxsheet.insertAfter($("link[href*='style/vendor/bootstrap/css/bootstrap.min.css']"));
-
-  applyCheckboxRadioStyle(chkboxStyle);
-
-  // Add handler when on settings page
-  var iCheckStyle = $("#iCheckStyle");
-  if (iCheckStyle !== null) {
-    iCheckStyle.val(chkboxStyle);
-    iCheckStyle.on("change", function () {
-      var themename = $(this).val();
-      localStorage.setItem("theme_icheck", themename);
-      applyCheckboxRadioStyle(themename);
-    });
-  }
-}
-
-function initCPUtemp() {
-  function setCPUtemp(unit) {
-    var temperature = parseFloat($("#rawtemp").text());
-    var displaytemp = $("#tempdisplay");
-    if (!isNaN(temperature)) {
-      switch (unit) {
-        case "K":
-          temperature += 273.15;
-          displaytemp.html(temperature.toFixed(1) + "&nbsp;K");
-          break;
-
-        case "F":
-          temperature = (temperature * 9) / 5 + 32;
-          displaytemp.html(temperature.toFixed(1) + "&nbsp;&deg;F");
-          break;
-
-        default:
-          displaytemp.html(temperature.toFixed(1) + "&nbsp;&deg;C");
-          break;
-      }
-    }
-  }
-
-  function setSetupvarsTempUnit(unit, showmsg = true) {
-    var token = encodeURIComponent($("#token").text());
-    $.getJSON("api.php?setTempUnit=" + unit + "&token=" + token, function (data) {
-      if (showmsg === true) {
-        utils.showAlert("info", "", "Setting temperature unit...");
-        if ("result" in data && data.result === "success") {
-          utils.showAlert("success", "far fa-check-circle", "Temperature unit set to " + unit, "");
-        } else {
-          utils.showAlert("error", "", "", "Temperature unit not set");
-        }
-      }
-    });
-  }
-
-  // Read the temperature unit from HTML code
-  var tempunit = $("#tempunit").text();
-  if (!tempunit) {
-    // if no value was set in setupVars.conf, tries to retrieve the old config from localstorage
-    tempunit = localStorage ? localStorage.getItem("tempunit") : null;
-    if (tempunit === null) {
-      tempunit = "C";
-    } else {
-      // if some value was found on localstorage, set the value in setupVars.conf
-      setSetupvarsTempUnit(tempunit, false);
-    }
-  }
-
-  setCPUtemp(tempunit);
-
-  // Add handler when on settings page
-  var tempunitSelector = $("#tempunit-selector");
-  if (tempunitSelector !== null) {
-    tempunitSelector.val(tempunit);
-    tempunitSelector.on("change", function () {
-      tempunit = $(this).val();
-      setCPUtemp(tempunit);
-
-      // store the selected value on setupVars.conf
-      setSetupvarsTempUnit(tempunit);
-    });
-  }
-}
-
-$(function () {
-  var enaT = $("#enableTimer");
-  var target = new Date(parseInt(enaT.html(), 10));
-  var seconds = Math.round((target.getTime() - Date.now()) / 1000);
-  if (seconds > 0) {
-    setTimeout(countDown, 100);
-  }
-
-  if (!testCookies() && $("#cookieInfo").length > 0) {
-    $("#cookieInfo").show();
-  }
-
-  // Apply per-browser styling settings
-  initCheckboxRadioStyle();
-  initCPUtemp();
-
-  // Run check immediately after page loading ...
-  utils.checkMessages();
-  // ... and once again with five seconds delay
-  setTimeout(utils.checkMessages, 5000);
-});
-
-// Handle Enable/Disable
-$("#pihole-enable").on("click", function (e) {
-  e.preventDefault();
-  localStorage.removeItem("countDownTarget");
-  piholeChange("enable", "");
-});
-$("#pihole-disable-indefinitely").on("click", function (e) {
-  e.preventDefault();
-  piholeChange("disable", "0");
-});
-$("#pihole-disable-10s").on("click", function (e) {
-  e.preventDefault();
-  piholeChange("disable", "10");
-});
-$("#pihole-disable-30s").on("click", function (e) {
-  e.preventDefault();
-  piholeChange("disable", "30");
-});
-$("#pihole-disable-5m").on("click", function (e) {
-  e.preventDefault();
-  piholeChange("disable", "300");
-});
-$("#pihole-disable-custom").on("click", function (e) {
-  e.preventDefault();
-  var custVal = $("#customTimeout").val();
-  custVal = $("#btnMins").hasClass("active") ? custVal * 60 : custVal;
-  piholeChange("disable", custVal);
-});
-
-// Handle Ctrl + Enter button on Login page
-$(document).on("keypress", function (e) {
-  if ((e.keyCode === 10 || e.keyCode === 13) && e.ctrlKey && $("#loginpw").is(":focus")) {
-    $("#loginform").attr("action", "settings.php");
-    $("#loginform").submit();
-  }
-});
-        hZ  xhZó•   20231202022112-8lKZ  Œ’B»R   https://pihole.apex-migrations.net/admin/scripts/pi-hole/js/footer.js?v=1707938340       ﬁ   /* Pi-hole: A black hole for Internet advertisements
- *  (c) 2017 Pi-hole, LLC (https://pi-hole.net)
- *  Network-wide ad blocking via your own hardware.
- *
- *  This file is copyright under the latest version of the EUPL.
- *  Please see LICENSE file for your rights under this license. */
-
-/* global utils:false */
-
-//The following functions allow us to display time until pi-hole is enabled after disabling.
-//Works between all pages
-
-function secondsTimeSpanToHMS(s) {
-  var h = Math.floor(s / 3600); //Get whole hours
-  s -= h * 3600;
-  var m = Math.floor(s / 60); //Get remaining minutes
-  s -= m * 60;
-  return h + ":" + (m < 10 ? "0" + m : m) + ":" + (s < 10 ? "0" + s : s); //zero padding on minutes and seconds
-}
-
-function piholeChanged(action) {
-  var status = $("#status");
-  var ena = $("#pihole-enable");
-  var dis = $("#pihole-disable");
-
-  switch (action) {
-    case "enabled":
-      status.html("<i class='fa fa-circle text-green-light'></i> Active");
-      ena.hide();
-      dis.show();
-      dis.removeClass("active");
-      break;
-
-    case "disabled":
-      status.html("<i class='fa fa-circle text-red'></i> Blocking disabled");
-      ena.show();
-      dis.hide();
-      break;
-
-    default:
-    // nothing
-  }
-}
-
-function countDown() {
-  var ena = $("#enableLabel");
-  var enaT = $("#enableTimer");
-  var target = new Date(parseInt(enaT.html(), 10));
-  var seconds = Math.round((target.getTime() - Date.now()) / 1000);
-
-  //Stop and remove timer when user enabled early
-  if ($("#pihole-enable").is(":hidden")) {
-    ena.text("Enable Blocking");
-    return;
-  }
-
-  if (seconds > 0) {
-    setTimeout(countDown, 1000);
-    ena.text("Enable Blocking (" + secondsTimeSpanToHMS(seconds) + ")");
-  } else {
-    ena.text("Enable Blocking");
-    piholeChanged("enabled");
-    if (localStorage) {
-      localStorage.removeItem("countDownTarget");
-    }
-  }
-}
-
-function piholeChange(action, duration) {
-  var token = encodeURIComponent($("#token").text());
-  var enaT = $("#enableTimer");
-  var btnStatus;
-
-  switch (action) {
-    case "enable":
-      btnStatus = $("#flip-status-enable");
-      btnStatus.html("<i class='fa fa-spinner'> </i>");
-      $.getJSON("api.php?enable&token=" + token, function (data) {
-        if (data.status === "enabled") {
-          btnStatus.html("");
-          piholeChanged("enabled");
-        }
-      });
-      break;
-
-    case "disable":
-      btnStatus = $("#flip-status-disable");
-      btnStatus.html("<i class='fa fa-spinner'> </i>");
-      $.getJSON("api.php?disable=" + duration + "&token=" + token, function (data) {
-        if (data.status === "disabled") {
-          btnStatus.html("");
-          piholeChanged("disabled");
-          if (duration > 0) {
-            enaT.html(Date.now() + duration * 1000);
-            setTimeout(countDown, 100);
-          }
-        }
-      });
-      break;
-
-    default:
-    // nothing
-  }
-}
-
-function testCookies() {
-  if (navigator.cookieEnabled) {
-    return true;
-  }
-
-  // set and read cookie
-  document.cookie = "cookietest=1";
-  var ret = document.cookie.indexOf("cookietest=") !== -1;
-
-  // delete cookie
-  document.cookie = "cookietest=1; expires=Thu, 01-Jan-1970 00:00:01 GMT";
-
-  return ret;
-}
-
-function initCheckboxRadioStyle() {
-  function getCheckboxURL(style) {
-    var extra = style.startsWith("material-") ? "material" : "bootstrap";
-    return "style/vendor/icheck-" + extra + ".min.css";
-  }
-
-  function applyCheckboxRadioStyle(style) {
-    boxsheet.attr("href", getCheckboxURL(style));
-    // Get all radio/checkboxes for theming, with the exception of the two radio buttons on the custom disable timer,
-    // as well as every element with an id that starts with "status_"
-    var sel = $("input[type='radio'],input[type='checkbox']")
-      .not("#selSec")
-      .not("#selMin")
-      .not("[id^=status_]");
-    sel.parent().removeClass();
-    sel.parent().addClass("icheck-" + style);
-  }
-
-  // Read from local storage, initialize if needed
-  var chkboxStyle = localStorage ? localStorage.getItem("theme_icheck") : null;
-  if (chkboxStyle === null) {
-    chkboxStyle = "primary";
-  }
-
-  var boxsheet = $('<link href="' + getCheckboxURL(chkboxStyle) + '" rel="stylesheet" />');
-  boxsheet.insertAfter($("link[href*='style/vendor/bootstrap/css/bootstrap.min.css']"));
-
-  applyCheckboxRadioStyle(chkboxStyle);
-
-  // Add handler when on settings page
-  var iCheckStyle = $("#iCheckStyle");
-  if (iCheckStyle !== null) {
-    iCheckStyle.val(chkboxStyle);
-    iCheckStyle.on("change", function () {
-      var themename = $(this).val();
-      localStorage.setItem("theme_icheck", themename);
-      applyCheckboxRadioStyle(themename);
-    });
-  }
-}
-
-function initCPUtemp() {
-  function setCPUtemp(unit) {
-    var temperature = parseFloat($("#rawtemp").text());
-    var displaytemp = $("#tempdisplay");
-    if (!isNaN(temperature)) {
-      switch (unit) {
-        case "K":
-          temperature += 273.15;
-          displaytemp.html(temperature.toFixed(1) + "&nbsp;K");
-          break;
-
-        case "F":
-          temperature = (temperature * 9) / 5 + 32;
-          displaytemp.html(temperature.toFixed(1) + "&nbsp;&deg;F");
-          break;
-
-        default:
-          displaytemp.html(temperature.toFixed(1) + "&nbsp;&deg;C");
-          break;
-      }
-    }
-  }
-
-  function setSetupvarsTempUnit(unit, showmsg = true) {
-    var token = encodeURIComponent($("#token").text());
-    $.getJSON("api.php?setTempUnit=" + unit + "&token=" + token, function (data) {
-      if (showmsg === true) {
-        utils.showAlert("info", "", "Setting temperature unit...");
-        if ("result" in data && data.result === "success") {
-          utils.showAlert("success", "far fa-check-circle", "Temperature unit set to " + unit, "");
-        } else {
-          utils.showAlert("error", "", "", "Temperature unit not set");
-        }
-      }
-    });
-  }
-
-  // Read the temperature unit from HTML code
-  var tempunit = $("#tempunit").text();
-  if (!tempunit) {
-    // if no value was set in setupVars.conf, tries to retrieve the old config from localstorage
-    tempunit = localStorage ? localStorage.getItem("tempunit") : null;
-    if (tempunit === null) {
-      tempunit = "C";
-    } else {
-      // if some value was found on localstorage, set the value in setupVars.conf
-      setSetupvarsTempUnit(tempunit, false);
-    }
-  }
-
-  setCPUtemp(tempunit);
-
-  // Add handler when on settings page
-  var tempunitSelector = $("#tempunit-selector");
-  if (tempunitSelector !== null) {
-    tempunitSelector.val(tempunit);
-    tempunitSelector.on("change", function () {
-      tempunit = $(this).val();
-      setCPUtemp(tempunit);
-
-      // store the selected value on setupVars.conf
-      setSetupvarsTempUnit(tempunit);
-    });
-  }
-}
-
-$(function () {
-  var enaT = $("#enableTimer");
-  var target = new Date(parseInt(enaT.html(), 10));
-  var seconds = Math.round((target.getTime() - Date.now()) / 1000);
-  if (seconds > 0) {
-    setTimeout(countDown, 100);
-  }
-
-  if (!testCookies() && $("#cookieInfo").length > 0) {
-    $("#cookieInfo").show();
-  }
-
-  // Apply per-browser styling settings
-  initCheckboxRadioStyle();
-  initCPUtemp();
-
-  // Run check immediately after page loading ...
-  utils.checkMessages();
-  // ... and once again with five seconds delay
-  setTimeout(utils.checkMessages, 5000);
-});
-
-// Handle Enable/Disable
-$("#pihole-enable").on("click", function (e) {
-  e.preventDefault();
-  localStorage.removeItem("countDownTarget");
-  piholeChange("enable", "");
-});
-$("#pihole-disable-indefinitely").on("click", function (e) {
-  e.preventDefault();
-  piholeChange("disable", "0");
-});
-$("#pihole-disable-10s").on("click", function (e) {
-  e.preventDefault();
-  piholeChange("disable", "10");
-});
-$("#pihole-disable-30s").on("click", function (e) {
-  e.preventDefault();
-  piholeChange("disable", "30");
-});
-$("#pihole-disable-5m").on("click", function (e) {
-  e.preventDefault();
-  piholeChange("disable", "300");
-});
-$("#pihole-disable-custom").on("click", function (e) {
-  e.preventDefault();
-  var custVal = $("#customTimeout").val();
-  custVal = $("#btnMins").hasClass("active") ? custVal * 60 : custVal;
-  piholeChange("disable", custVal);
-});
-
-// Handle Ctrl + Enter button on Login page
-$(document).on("keypress", function (e) {
-  if ((e.keyCode === 10 || e.keyCode === 13) && e.ctrlKey && $("#loginpw").is(":focus")) {
-    $("#loginform").attr("action", "settings.php");
-    $("#loginform").submit();
-  }
-});
-”ò¿Ÿñ   í        ª'Y      secondsTimeSpanToHMS   `-Ñó      floor      ˚wp      piholeChanged      	‡Ï      action     §‰ƒç      #status    ‰õ—¯      ena    äí8
-      #pihole-enable     qF@ˇ      dis    
-ΩÀU      #pihole-disable	    hË?D      enabled
-    ‘„X      html   Kù$4      <i class='fa fa-circle text-green-light'></i> Active   üvÙ}      hide   HáíK      show   ˆ+      removeClass    å®Px      active     ûzÉw      disabled   ÕPÂå7      <i class='fa fa-circle text-red'></i> Blocking disabled    °¸B	      countDown      ”_e      #enableLabel   ≥!Œ^      enaT   aº2˛      #enableTimer   &9!Ï      round      uÙ.      getTime    *π      now    ‘Ûƒ2      :hidden    à3¿µ      text   @Ó»      Enable Blocking    3AtŸ
-      setTimeout      Ú*l      Enable Blocking (      ¨@;à      localStorage   DâúÓ
-      removeItem      Ω5˘      countDownTarget!    !é0∫      piholeChange"   ¿
-7      duration#   £Ì>      token$      Eáﬂ      #token%     0∑	      btnStatus&      ˛˝ùd      enable'     ã”„‡      #flip-status-enable(    ¨Wﬂ      <i class='fa fa-spinner'> </i>)     Pºv‘      getJSON*    ‘q2ı      api.php?enable&token=+      6ó(Å      data,   7ÖR      disable-    ˜êyÿ      #flip-status-disable.   D∞≥]      api.php?disable=/   --&=      &token=0    Úv$Y      testCookies1    π„+	      navigator2      õÖ„      cookieEnabled3      ∏OÄ      document4   _YNx      cookie5     vKÁ/      cookietest=16   t¥NŒ      ret7    ⁄Eú¡      indexOf8    P–È∏      cookietest=9    Íb•Á3      cookietest=1; expires=Thu, 01-Jan-1970 00:00:01 GMT:    rn‡      initCheckboxRadioStyle;     e´<      getCheckboxURL<     	É      extra=      ›JX?
-      startsWith>     Ú=	      material-?      ıˆ›~      material@   }~h	      bootstrapA      ºLæ      style/vendor/icheck-B   £ÒàÜ      .min.cssC   €>-Ï      applyCheckboxRadioStyleD    -¨ô      boxsheetE   A¢Ωê      attrF   ª©`X      hrefG   9Ôx      selH    –g·*      input[type='radio'],input[type='checkbox']I     qûÅÄ      notJ    ±)Ò_      #selSecK    Ó§î      #selMinL    ç∆’)      [id^=status_]M      ˛Ë˘2      parentN     Bå|      addClassO   Î{∞      icheck-P    ™Õ®      chkboxStyleQ    Í√Òﬁ      getItemR    9÷¬f      theme_icheckS   uòhS      primaryT    }üá®      <link href="U   ;ö;ù      " rel="stylesheet" />V      ää≥(      insertAfterW    ‡ Vq:      link[href*='style/vendor/bootstrap/css/bootstrap.min.css']X     “™„      iCheckStyleY    %<û”      #iCheckStyleZ   &⁄õ      val[    Á˛¡      change\     Vø›Å	      themename]      ßª+À      setItem^    ï≤‚Ï      initCPUtemp_    /|/
-      setCPUtemp`     àÑ˝      temperaturea    ¶Aw’      #rawtempb   ≈Ï⁄£      displaytempc    cüM      #tempdisplayd   ÿ8ª      toFixede    ß\QÎ      &nbsp;Kf    ˜ˇ¯      &nbsp;&deg;Fg   ZπÈ·      &nbsp;&deg;Ch   °úèi      setSetupvarsTempUniti   ¿al®      showmsgj    —ÜóX      api.php?setTempUnit=k   k
-qÒ      utilsl      9$Y	      showAlertm      ¸ı‰      infon   @$	K      Setting temperature unit...o    …©\9      successp    Y^2‰      far fa-check-circleq    ˚Æ€Z      Temperature unit set to r   ˛tuW      errors      g≠      Temperature unit not sett   N†o`      tempunitu   #˝S8	      #tempunitv      ùæ      tempunitSelectorw   ïˇ+      #tempunit-selectorx     uØ(      #cookieInfoy    ¡c∏™      checkMessagesz      ü™‚X      click{      B9∫¿      preventDefault|     ]´±      #pihole-disable-indefinitely}   ∞I?      #pihole-disable-10s~    ek7œ      #pihole-disable-30s    dÂä      #pihole-disable-5mÄ     v˘™      300Å    ¯çú      #pihole-disable-customÇ     Âƒ      custValÉ    Ãı-      #customTimeoutÑ     Ü;Â«      #btnMinsÖ   7ÑÉz      hasClassÜ   ®±V      keypressá   ≠5      keyCodeà    
-@•&      ctrlKeyâ    –ΩÌ      #loginpwä   îÎ€      :focusã     Y§Cˇ
-      #loginformå     }ßkÏ      settings.phpç   dÙ∂      submité     K7]¡      piholeChange/<ë     ñÉ«      initCheckboxRadioStyle/<î   Å@˚O"      initCPUtemp/setSetupvarsTempUnit/<ï     (£%	      initCPUtemp/<                            Ô%,â                                                                                                                                                                           	                 
-                                                                                                                                                                                                                                                                            ≥Oåc            ê  ê  ê!  ê0  ê:  ê^  ê            s  h  m                Ÿ                        „  æ                "  P#    P%  P             +               +                6                ;  PC  PP  D  PX              ﬂ  <              ﬂ  G                \  Å                 _  Ph  Pt  Pv                `  b               `i  P      #               +                Å                   „  æ               e               e               e               e               e              e  Ç               e  Ø¬0∞IÙ$KEÆ˙öá&’™ç!´!   ∏  È˚í∏  
-                        ’   ∂    l	   v ⁄∂    
-   r ‹I   ﬂ   l   v ⁄∂       r ‹I   ﬂ   l   v ⁄∂       r ‹I   ﬂ   l   v ⁄∂       r ‹I   ﬂ   l   v ⁄∂       r ‹I   ﬂ   l   v ⁄∂       r ‹I   ﬂ   l   v ⁄∂    ∂   r ‹I   ﬂ   l   v ⁄£5Ä  „`ˇˇˇˇP4Ä  ˙`PˇˇˇÙP4Ä  ˇ`P-ˇˇˇÙP`P$ˇˇˇÙP`P$ˇˇˇÙP`P#ˇˇˇÙP`P'ˇˇˇÙP4Ä `ˇˇˇˇPˇˇˇÒP4Ä PÄ  Ê¢ì  √                        ∂   ‹I   ﬂ∑  *r »   ⁄∑  π   )&-«  ⁄∂   ‹I   ﬂ∑  <*r »  ⁄∑  π  <)&-«  ⁄π      %π  
-ò   ï      π  %ó   ï   π  ï   %   %∑  
-ò   ï      ∑  %ó   ï   ∑  ï   %†£ 
-`ˇˇˇ˙P(`ë 
-`ˇˇˇ˙P(`ê `
-ñ ü ï óQÄh  Ìlh  ı                        ∂       r »   ⁄∂       r »  ⁄∂       r »  ⁄∑  ‹   ù    ï   ‹   ù_   ï   ûë   ï   π   ‹I   ﬂ   v ⁄π  ‹I	   ﬂv  ⁄π  ‹I
-   ﬂv  ⁄π  ‹I   ﬂ   v ⁄óA   ï   π   ‹I   ﬂ   v ⁄π  ‹I
-   ﬂv  ⁄π  ‹I	   ﬂv  ⁄ó   ï   £ `P(`P(`PH
-`Ø `ê P$`P$`P$`ê P$`: `ê P$`P$`P$`:0P  ™¿‘  j         
-       /        ∂       r »   ⁄∂       r »  ⁄∂   ∂    π  ‹I   ﬂr  
-r ﬁ  Ä »  ⁄∂   ‹I   ﬂπ  ‹I	   ﬂr  ∂   ‹I
-   ﬂr  &Ë*r »  ⁄∂       r ‹I   ﬂ   r ò    ï   π   ‹I   ﬂ   v ⁄ †ï   π  òI   ï   ∂    ∂   Ëv ⁄π   ‹I   ﬂ   ∂    π  r %   %v ⁄óQ   ï&   π   ‹I   ﬂ   v ⁄∂       v ⁄∂   ò   ï,   ∂   ‹I   ﬂ   v ⁄ï/   £ `P(`P(`		PˇˇˇÚPˇˇˇ˜(`PPˇˇˇ·PH`PP-`ê P$`1F`ê `ˇˇˇˇP$`	ˇˇˇÎP
-ˇˇˇÂP `ê P$`P$`/`ë P9PÄÄÄ¨  Ÿ('¨  #  	                    ∏ …   ⁄∂    ∂       r ‹I   ﬂr  r »   ⁄∂       r …   ⁄∑  ‹   ù    ï	   ‹   ùa   ï
-   ûµ   ï
-   ∂       r …   ⁄º   ‹I	   ﬂ
-   v ⁄∂   ‹I   ﬂ   π   %l   v ⁄óc   ï   ∂       r …   ⁄º   ‹I	   ﬂ
-   v ⁄∂   ‹I   ﬂ   º   %   %π   %l   v ⁄ó   ï   £)`[
-PˇˇˇÛP(`P@
-`Ø `P)`ë 
-P$`
-ˇˇˇ◊PD`: `P)`ë 
-P$`
-ˇˇˇ≈PD`: 0#PÄÄÄx   Ü¸&Ux   B                         ∑  I      ò.   ï   º   ‹I   ﬂ   v ⁄∂       v ⁄ï   £ `ò 
-`ë 
-P$
-`PIP‰   a§bä‰   ç                         ∑  I      òy   ï   º   ‹I   ﬂ   v ⁄∂       v ⁄º   òD   ï	   º   ‹I   ﬂ∂   ‹I   ﬂr  º   Ë)%v ⁄∂    ∂	   dv ⁄ï   £ `ò 
-`ë 
-P$
-`P$`ë `
-P
-ˇˇˇÓP$`ˇˇˇˇPI	PÄÄ§   íöJ¸§   b                         ∂   I   ò   ï   †ï   ∂      K   ⁄∂   I   ‹I   ﬂ   r ˇ»   ⁄∂      K   ⁄π   †£ `î `1F`ê `ñ PK
-`ê@`QÄú  MÜÈú                          l   …   ⁄l   …   ⁄∂   ò#   ï   ∂   ‹I   ﬂ   r ó   ï   ï   »   ⁄π   ò   ï      »   ⁄ï   ∂       º    π   r %	   %r …   ⁄º   ‹I
-   ﬂ∂       r v ⁄º    π   v ⁄∂       r »  ⁄π  ò6   ï   π  ‹I   ﬂπ   v ⁄π  ‹I   ﬂ   l   v ⁄ï   £ñ@`† Pò `ê `O`ˇˇˇÒP
-ˇˇˇÓP)`[ˇˇˇÙPD`ˇˇˇˇPD`P(`ê `ˇˇˇ¸P$`ê ˇˇˇÛP9'PÄ|   ∆2Ô|   L                        ∑  ‹I   ﬂ   r ò   ï      ó   ï      ï   »   ⁄   π   %   %†£ `P´ ` +Q   Ù æ   ù                        º   ‹I   ﬂ   º    ∑  r v ⁄∂       r ‹I   ﬂ   r ‹I   ﬂ   r ‹I   ﬂ   r »   ⁄π   ‹I	   ﬂr  ‹I
-   ﬂv  ⁄π   ‹I	   ﬂr  ‹I   ﬂ   ∑  %v ⁄£ `ë ˇˇˇÒPˇˇˇÛPD`P*U*U*U(`P
-	P$`P
-ˇˇˇÎP$PÄÄî   yZƒ©î   J                        Ÿ»  ⁄∂    π  r ‹I   ﬂr  »   ⁄∂   ‹I   ﬂ   π   v ⁄º    π   v ⁄£&`ˇˇˇˇP
-P(`ë %ˇˇˇËP$`ˇˇˇˇP$PÄú  lM˙ú                          l   …   ⁄l   …   ⁄∂       r ‹I   ﬂr  …   ⁄º   ôy   ï   ∂   ò#   ï   ∂   ‹I   ﬂ   r ó   ï
-   ï
-   …   ⁄º   ò   ï   	   …   ⁄ó   ï   º    º   v ⁄ï   º    º   v ⁄∂    
-   r »   ⁄π   ò7   ï   π   ‹I   ﬂº   v ⁄π   ‹I   ﬂ   l   v ⁄ï   £ñ@&`P
-P)`O)`† 'Pô `ë `ï@.`ˇˇˇˇPI2`ˇˇˇˇPD5`P(`ê `ˇˇˇ¸P$`ê ˇˇˇÛP9@PÄÄº  –Ø^¥º  0                        ∂    ∂       r ‹I   ﬂr  r »   ⁄∂       r »  ⁄∂    π   r ô‰   ï   ∑  ‹   ù    ï   ‹   ùQ   ï   ûá   ï   π   
-fffffq@%-»   ⁄π  ‹I	   ﬂπ   ‹I
-   ﬂr    %v ⁄ós   ï   π   	)* %»   ⁄π  ‹I	   ﬂπ   ‹I
-   ﬂr    %v ⁄ó3   ï   π  ‹I	   ﬂπ   ‹I
-   ﬂr    %v ⁄ó   ï    £ `[
-PˇˇˇÒP(`P(`ˇˇˇ˙P-`Ø 
-`î 
-`P	ˇˇˇÔP$
-`:
- 
-`í 
-`P	ˇˇˇÔP$
-`: 
-`P	ˇˇˇÔP$
-`JPÄÄÄ‡   Ksú–   Ñ                      ¨Ø   Ø   ⁄∑  Ø   ⁄∑ ‹ ò   ï   ⁄ï   Ø   ⁄∂    ∂       r ‹I   ﬂr  r »   ⁄∂   ‹I   ﬂ   º   %   %π   %l	   v ⁄£≤ `[
-PˇˇˇÛP(`
-ˇˇˇ≈PDPÄÄ‡      2   Õˇˇˇˇˇˇˇ  ÍK^ö  …                         º   ±   ò∑   ï   ∂   ‹I   ﬂ         v ⁄   ∑  !ö   ï   ⁄∑  I      ï	   ò>   ï
-   ∂   ‹I   ﬂ      	   º   ±   %   v ⁄ó.   ï   ∂   ‹I   ﬂ
-            v ⁄ï   £ 
-`ñ `õ P$`¨ 
-`ñ 2ê ˇˇˇ∑P 
-`† PI	PÄÄå   ä}ì+å   B                        Ÿ»   ⁄∂    π   r ‹I   ﬂr  …   ⁄º    º   v ⁄º    º   v ⁄£&`ˇˇˇ˛P
-P)`ˇˇˇˇPD`ˇˇˇˇP$PÄº  ∫ûZÛº  -         	       /        ∂       r »   ⁄∂   ∂    π   ‹I   ﬂr  
-r ﬁ  Ä »  ⁄∂   ‹I   ﬂπ  ‹I   ﬂr  ∂   ‹I	   ﬂr  &Ë*r »  ⁄π  ò   ï   ∂
-    ∂   dv ⁄ï   ∂    r  ö    ï   ⁄∂       r I   ï   ò#   ï    ∂       r ‹I   ﬂv  ⁄ï$   ∂    v  ⁄∂    v  ⁄∂   ‹I   ﬂv  ⁄∂
-    ∂   I   àv ⁄£ `P(`		PˇˇˇÚPˇˇˇ˜(`PPˇˇˇ·P(`ê `ˇˇˇˇPI`Pö Pô `P
-PI`*`J`PD`ˇˇˇˇPPp   Ö,í≈p   8                         ∑  ‹I   ﬂv  ⁄∂   ‹I   ﬂ   v ⁄∂          v ⁄£ `
-P$`ë P$`ê PPÄT   ôŒ)T   #                         ∑  ‹I   ﬂv  ⁄∂          v ⁄£ `
-P$`ê PPÄT   ôŒ)T   #                         ∑  ‹I   ﬂv  ⁄∂          v ⁄£ `
-P$`ê PPÄT   ôŒ)T   #                         ∑  ‹I   ﬂv  ⁄∂          v ⁄£ `
-P$`ê PPÄT   ôŒ)T   #                         ∑  ‹I   ﬂv  ⁄∂          v ⁄£ `
-P$`ê PPÄÃ   ´˚˝|Ã   Ö                        ∑  ‹I   ﬂv  ⁄∂       r ‹I   ﬂr  »   ⁄∂       r ‹I   ﬂ   r ò   ï   π   <)ó   ï   π   ï   »   ⁄∂    	   π   v ⁄£ `
-P$`P
-P(`
-PP¨ `ˇˇˇÙPPÙ   Á}©¡Ù   ≤                         ∑  I   
-õ   ï   ⁄∑  I   ï   ö;   ï   ⁄∑  I   ö(   ï   ⁄∂       r ‹I   ﬂ   r ï   òF   ï   ∂       r ‹I   ﬂ	   
-   v ⁄∂       r ‹I   ﬂv  ⁄ï   £ `œ 6PPí `Pî P$`P
-P9P3ıÿ  `Q    :  0    `$        	    
-                `$      P  ê  
-  Q          ú                )    	           `Ÿ  	  
-  Ü       `Ÿ    
-  Ü     P          `â   $  $      &  ,  '  
-  (  )  *    p-  .  /    p  `1  2  3  5  4  7  8  9  	  `=  >  ?  @  A  B  
-  `E  F  $  H  I  J  K  L  M    N  O    `$  Z    ]  R    `	  p
-  p  Q  R  S  $  T  U  V  W  Y  Z   [    p  `è  $  a    c    K  F  
-  d  e  f  g    `k  l  m  Ü   n  ≥  o  p  q  r  s    `  `â   $  $    )  j  /    p  `$  Z    `  p  p$  u      Q  t  C  w  Z   [    p  `$    P  ê  
-  Q            0  x  +    :  ^  k  y    `{         !  &  Ü     `{  !  ,  0    `{  !  ,  @    `{  !  ,  ¿    `{  !  ,  Ä    `{  $  É  Z  Ñ  Ö    !  ,    `á  à  $  â  ú ä  ã  E    å  ç     `  p  p  p  p  p  p  p$    p   z    p|    p}    p~    p    pÅ    p3  Ü    pˇXÑˇ                               †              †              †  =      !      †  -      é      † 3   
-   é      † O   	   0      †  r      :      †  X      ;      †  _      C      †  l      ë      † ™      ^      †  É      _      †  ù   
-   h      †  ë      î      † ß      ï      † π              † Õ              † ’              † ⁄              † ﬂ              † ‰              † È   
-           † Û              † ùH©¿      ﬁ       ﬁ                    –  œ  ≥  œ                 Á  œ  —  œ                 „  M  —  M  -              Äd  A  O  A  E               ¶  +	  ù  +	  N   :            
-    ¯	    Y   L            W  z  C  z  j              Äõ  ,  |  ,  y                π  H  ¢  H  z               l  <  L  <     "           î  $  ã  $  ö   &           ÄB  =  .  =  ¢                \  ï  I  ï  £             Ä∂  ”  ô  ”  π               Q  Õ  H  Õ  ª   J           î  5  ã  5  ⁄   +             J  u  A  u  ‰                ª  $  ≤  $  ˚   )            ^  õ  U  õ     7            Ã  
-  √  
-    .            ;  y  2  y    .            ©  Ë  †  Ë    -              œ    œ    1            #   €      €     $          5°›!Å+®Lë`˜T      eÂ∂ªeÂ∂ªF£ô…eË-S   Ñ    O^partitionKey=%28https%2Capex-migrations.net%29,:https://pihole.apex-migrations.net/admin/scripts/pi-hole/js/footer.js?v=1707938340 strongly-framed 1 security-info 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 request-method GET response-head HTTP/2 200 
-accept-ranges: bytes
-alt-svc: h3=":443"; ma=2592000
-content-security-policy: default-src 'self' 'unsafe-inline';
-content-type: application/javascript
-date: Mon, 04 Mar 2024 11:54:38 GMT
-etag: "2326603066"
-last-modified: Wed, 14 Feb 2024 19:19:00 GMT
-referrer-policy: same-origin
-server: lighttpd/1.4.59
-x-content-type-options: nosniff
-x-frame-options: DENY
-x-permitted-cross-domain-policies: none
-x-pi-hole: The Pi-hole Web interface is working!
-x-xss-protection: 0
-content-length: 8414
-X-Firefox-Spdy: h2
- original-response-headers accept-ranges: bytes
-alt-svc: h3=":443"; ma=2592000
-content-security-policy: default-src 'self' 'unsafe-inline';
-content-type: application/javascript
-date: Mon, 04 Mar 2024 11:54:38 GMT
-etag: "2326603066"
-last-modified: Wed, 14 Feb 2024 19:19:00 GMT
-referrer-policy: same-origin
-server: lighttpd/1.4.59
-x-content-type-options: nosniff
-x-frame-options: DENY
-x-permitted-cross-domain-policies: none
-x-pi-hole: The Pi-hole Web interface is working!
-x-xss-protection: 0
-content-length: 8414
-X-Firefox-Spdy: h2
- ctid 2 uncompressed-len 0 net-response-time-onstart 61 net-response-time-onstop 77 alt-data 1;8414,javascript/moz-script-bytecode-20231202022112-8l alt-data-from-child 1   {]
