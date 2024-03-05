@@ -6,6 +6,6 @@ resource "transip_dns_record" "firefox" {
   domain  = data.transip_domain.apex-migrations.id
   name    = var.firefox
   expire  = 300
-  type    = "CNAME"
+  type    = "A"
   content = var.vps
 }
