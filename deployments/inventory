@@ -1,5 +1,0 @@
-[linux]
-dc-srv-01 ansible_host=dc-srv-01.apex-migrations.net 
-
-[linux:vars]
-ansible_user = GregoryacDevOps
