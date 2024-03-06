@@ -81,7 +81,7 @@ jobs:
             [inventory]
             enable_plugins = yaml, ini
           ## SSH private key #
-          key: ${{ secrets.ANSIBLE_SSH_PRIVATE_KEY }}
+          # key: ${{ secrets.ANSIBLE_SSH_PRIVATE_KEY }}
           ## inventory file contents #
           inventory: |
             [production]
