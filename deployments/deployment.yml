@@ -30,7 +30,7 @@
     become: True
     shell:
       cmd: "docker-compose up -d"
-      chdir: /home/GregoryacDevOps/srv/firefox-demo/
+      chdir: ~/srv/firefox-demo/
 
   #########################################
   # Clean up temp folder after deployment #
