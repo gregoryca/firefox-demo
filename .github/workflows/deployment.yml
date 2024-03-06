@@ -77,6 +77,12 @@ jobs:
           playbook: deployment.yml
           ## Optional, directory where playbooks live #
           directory: ./deployments
+          configuration: |
+            [defaults]
+            transport = ssh
+            
+            [ssh_connection]
+            ssh_args = -o ForwardAgent=yes
           ## SSH private key #
           key: ${{ secrets.ANSIBLE_SSH_PRIVATE_KEY }}
           ## inventory file contents #
