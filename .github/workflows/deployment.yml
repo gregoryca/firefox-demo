@@ -84,8 +84,8 @@ jobs:
           key: ${{ secrets.ANSIBLE_SSH_PRIVATE_KEY }}
           ## inventory file contents #
           inventory: |
-            [production]
-            dc-srv-01 ansible_host=dc-srv-01.apex-migrations.net
+            # [production]
+            # dc-srv-01 ansible_host=dc-srv-01.apex-migrations.net
 
             # [production:vars]
             # ansible_user = ${{ secrets.ANSIBLE_USER }}
