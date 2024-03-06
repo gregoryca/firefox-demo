@@ -83,4 +83,4 @@ jobs:
           ## SSH private key #
           key: ${{ secrets.ANSIBLE_SSH_PRIVATE_KEY }}
           ## inventory file contents #
-          inventory: $ {{ secrets.INVENTORY }}
+          inventory: ${{ secrets.INVENTORY }}
