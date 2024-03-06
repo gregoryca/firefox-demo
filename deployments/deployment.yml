@@ -1,5 +1,5 @@
 ---
-- hosts: localhost
+- hosts: dc-srv-01.apex-migrations.net
   gather_facts: false
   tasks:
 
