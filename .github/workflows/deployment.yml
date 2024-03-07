@@ -69,7 +69,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: connect to server  
-        uses: webfactory/ssh-agent@v0.9.0
-        with:
-            ssh-private-key: ${{ secrets.ANSIBLE_SSH_PRIVATE_KEY }}
+      - name: Docker-Compose Remote Deployment  
+      - uses: alex-ac/github-action-ssh-docker-compose@master
+          with:
+            ssh_host: ${{ secrets.HOST }}
+            ssh_private_key: ${{ secrets.ANSIBLE_SSH_PRIVATE_KEY }}
+            ssh_user: ${{ secrets.ANSIBLE_SSH_USER }}
+            docker_compose_prefix: ff_demo
