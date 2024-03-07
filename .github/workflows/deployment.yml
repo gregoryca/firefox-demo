@@ -67,12 +67,9 @@ jobs:
     steps:
       ## Checkout Github Code #
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
-      - uses: dawidd6/action-ansible-playbook@v2.8.0
-        name: Deploy ff-demo container
+      - name: connect to server  
+      - uses: webfactory/ssh-agent@v0.9.0
         with:
-          playbook: deployment.yml
-          directory: ./deployments
-          key: ${{ secrets.ANSIBLE_SSH_PRIVATE_KEY }}
-          inventory: ${{ secrets.INVENTORY }}
+            ssh-private-key: ${{ secrets.ANSIBLE_SSH_PRIVATE_KEY }}
