@@ -71,8 +71,8 @@ jobs:
 
       - name: Docker-Compose Remote Deployment  
       - uses: alex-ac/github-action-ssh-docker-compose@master
-          with:
-            ssh_host: ${{ secrets.HOST }}
-            ssh_private_key: ${{ secrets.ANSIBLE_SSH_PRIVATE_KEY }}
-            ssh_user: ${{ secrets.ANSIBLE_SSH_USER }}
-            docker_compose_prefix: ff_demo
+        with:
+          ssh_host: ${{ secrets.HOST }}
+          ssh_private_key: ${{ secrets.ANSIBLE_SSH_PRIVATE_KEY }}
+          ssh_user: ${{ secrets.ANSIBLE_SSH_USER }}
+          docker_compose_prefix: ff_demo
