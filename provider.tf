@@ -10,6 +10,11 @@ terraform {
       source  = "aequitas/transip"
       version = "0.1.22"
     }
+
+    ansible = {
+      version = "~> 1.2.0"
+      source  = "ansible/ansible"
+    }
   }
 
   backend "http" {

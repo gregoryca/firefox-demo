@@ -15,3 +15,8 @@ variable "vps" {
   default     = ["85.10.132.208"]
   description = "DDNS Record"
 }
+
+variable "dc-srv-01" {
+  type        = string
+  default     = "dc-srv-01.apex-migrations.net"
+}

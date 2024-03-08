@@ -55,7 +55,7 @@ jobs:
     steps:
       ## Checkout Github Code #
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       ## Deploys an ansible script to manage the Authelia stack deployment #
       - uses: dawidd6/action-ansible-playbook@v2.8.0

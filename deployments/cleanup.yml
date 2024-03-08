@@ -9,11 +9,6 @@
       cmd: "docker-compose down"
       chdir: /home/GregoryacDevOps/srv/firefox-demo/
 
-  # - name: Prune docker container
-  #   become: True
-  #   shell:
-  #     cmd: "docker system prune -a"
-
   - name: Delete content & directory
     file:
       state: absent

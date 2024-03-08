@@ -9,3 +9,10 @@ resource "transip_dns_record" "firefox" {
   type    = "A"
   content = var.vps
 }
+
+resource "ansible_playbook" "playbook" {
+  playbook   = "cleanup.yml"
+  name       = "example.apex-migrations.net"
+  replayable = true
+  ansible_playbook_binary = "/deployments/"
+}
